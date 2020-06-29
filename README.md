@@ -1,0 +1,1 @@
+Our experience of the world is multimodal — we see objects, hear sounds, feel the texture, smell odors, and taste flavors. Modality refers to the way in which something happens or is experienced and a research problem is characterized as multimodal when it includes multiple such modalities
