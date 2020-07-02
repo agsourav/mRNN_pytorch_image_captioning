@@ -76,8 +76,9 @@ class ImageFeatures(object):
         return feature_v
         
 class Model(nn.Module):
-    def __init__(self, input_dim, embed_dim, hidden_dim, output_dim, feature_dim):
+    def __init__(self, input_dim, embed_dim, hidden_dim, output_dim, feature_dim, vocab_size):
         super(Model, self).__init__()
+        self.embed1 = nn.Embedding(vocab_size, 128)
         self.hidden_dim = hidden_dim
         self.embed2 = nn.Linear(input_dim, embed_dim)
         self.rnn = mRNN(embed_dim, hidden_dim)
@@ -86,31 +87,66 @@ class Model(nn.Module):
         self.Vw = nn.Linear(embed_dim, hidden_dim)
         self.Vi = nn.Linear(feature_dim, hidden_dim)
         self.G = nn.Tanh()
+        self.word_out = nn.Linear(feature_dim, vocab_size)
 
     def forward(self, x, img, max_caption_length):   #embedded representation of word sequence [seq_len, batch, embedding_dim]
+        x = self.embed1(x)
+        x = x.permute(1,0,2)
         batch_size = x.shape[1]
         w0 = self.embed2(x.squeeze(0))  #[batch, embed_dim]
         h0 = torch.zeros((1, batch_size, self.hidden_dim))
         # w0: [1, batch_size, embed_dim]    h0: [1, batch_size, hidden_dim]
         wt = w0
         caption = wt.unsqueeze(0)
+        out = self.word_out(wt)
+        out_word = out.unsqueeze(0)
         rt_1 = h0
+        feature_vector_img = self.imagefeatures.feature_vector(img)
+        Vit = self.Vi(feature_vector_img)
         for i in range(max_caption_length):
             wt = wt.unsqueeze(0)
             rt = self.rnn(wt, rt_1)  
-        # wt: [1, batch_size, embed_dim]    rt: [1, batch_size, hidden_dim]
+            # wt: [1, batch_size, embed_dim]    rt: [1, batch_size, hidden_dim]
             Vwt = self.Vw(wt.squeeze(0))
-            Vrt = self.Vr(rt.squeeze(0))
-
-            feature_vector_img = self.imagefeatures.feature_vector(img)
-            Vit = self.Vi(feature_vector_img)
+            Vrt = self.Vr(rt.squeeze(0))   
             
             mt = Vwt + Vrt + Vit    # [batch_size, feature_dim]
             mt = self.G(mt)         # [batch_size, feature_dim]
             rt_1 = rt
             wt = mt
+            out = self.word_out(wt)
+            out_word = torch.cat([out_word, out.unsqueeze(0)], dim = 0) 
             caption = torch.cat([caption, wt.unsqueeze(0)], dim = 0)
             
-        return caption
+        return caption, out_word
+
+class Evaluate(nn.Module):
+    def __init__(self, model, Images, criterion, optimiser, epochs, train = True):
+        super(Evaluate, self).__init__()
+        self.model = model
+        self.criterion = criterion
+        self.loss = None
+        self.epochs = epochs
+        self.imageLoader = Images.dataLoader
+        self.perplexity = None
+        self.logsoftmax = nn.LogSoftmax(dim = 2)
+        self.optimiser = optimiser
+
+    def forward(self, inp_word):
+        self.loss = 0.0
+        
+        for epoch in range(self.epochs):
+
+            images, captions = self.imageLoader()
+            caption, out_word = self.model(inp_word, images, 5)        #max caption length
+            word_log = self.logsoftmax(out_word)
+            word_prob, indices = torch.max(word_log, dim = 2, keepdim = True)
+            self.perplexity =  - torch.sum(word_prob, dim = 0)
+            self.loss = self.perplexity / word_prob.shape[0]
+            print(self.loss.item())
+
+            self.loss.backward()
+            self.optimiser.step()
+    
 
 
