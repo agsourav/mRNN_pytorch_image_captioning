@@ -131,22 +131,25 @@ class Evaluate(nn.Module):
         self.perplexity = None
         self.logsoftmax = nn.LogSoftmax(dim = 2)
         self.optimiser = optimiser
+        self.iters = 50
 
     def forward(self, inp_word):
-        self.loss = 0.0
         
         for epoch in range(self.epochs):
-
-            images, captions = self.imageLoader()
-            caption, out_word = self.model(inp_word, images, 5)        #max caption length
-            word_log = self.logsoftmax(out_word)
-            word_prob, indices = torch.max(word_log, dim = 2, keepdim = True)
-            self.perplexity =  - torch.sum(word_prob, dim = 0)
-            self.loss = self.perplexity / word_prob.shape[0]
-            print(self.loss.item())
-
-            self.loss.backward()
-            self.optimiser.step()
-    
+            self.loss_total = 0.0
+            for it in range(self.iters):
+                images, captions = self.imageLoader()
+                caption, out_word = self.model(inp_word, images, 35)        #max caption length                
+                word_log = self.logsoftmax(out_word)
+                word_prob, indices = torch.max(word_log, dim = 2, keepdim = True)
+                self.perplexity =  - torch.sum(word_prob, dim = 0)
+                self.loss = self.perplexity / word_prob.shape[0]
+                self.loss = torch.sum(self.loss)
+                self.loss.backward()
+                self.optimiser.step()
+                print(self.loss.item())
+                self.loss_total = self.loss_total + self.loss
+            self.loss_total = self.loss_total /self.iters
+            print(self.loss_total)
 
 
