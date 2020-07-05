@@ -21,7 +21,7 @@ vocab = Vocabulary()
 vocab.dictionary = dictionary
 vocab_size = len(vocab.dictionary)
 
-batch_size = 2
+batch_size = 1
 image_shape = (128,128)
 start = time.time()     #start
 Images = BatchedImages(vocab, captionSeries_file, image_shape, image_dir = image_dir, batch_size = batch_size)
@@ -41,8 +41,9 @@ model_out, caption_out = mrnn(inp_word, images, max_caption_len)
 output = torch.argmax(caption_out, dim = 2, keepdim = True)
 
 caption_gen = [list(map(lambda x: vocab.idx2word(x.item()), output[:,i,0])) for i in range(output.shape[1])]
+true_caption = [list(map(lambda x: vocab.idx2word(x), captions_[i])) for i in range(len(captions_))]
 print('before training')
-print(caption_gen)
+#print(caption_gen)
 print('-'*20)
 '''
 plt.figure()
@@ -50,13 +51,16 @@ plt.imshow(images[0].permute(1,2,0))
 #print('Generated caption: ',output, output.shape, caption_out.shape)
 '''
 optim = torch.optim.SGD(mrnn.parameters(), lr = 0.01)
-eval = Evaluate(mrnn, Images, None, optim, 1)
+criterion = nn.NLLLoss()
+eval = Evaluate(mrnn, Images, criterion, optim, 50)
 eval(inp_word)
 
 model_out, caption_out = mrnn(inp_word, images, max_caption_len)
 output = torch.argmax(caption_out, dim = 2, keepdim = True)
 
 caption_gen = [list(map(lambda x: vocab.idx2word(x.item()), output[:,i,0])) for i in range(output.shape[1])]
+true_caption = [list(map(lambda x: vocab.idx2word(x), captions_[i])) for i in range(len(captions_))]
 print('after training')
-print(caption_gen)
+print('Generated caption: ',caption_gen)
+print('True caption: ', true_caption)
 print('-'*20)

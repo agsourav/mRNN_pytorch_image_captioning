@@ -137,15 +137,28 @@ class Evaluate(nn.Module):
 
         for epoch in range(self.epochs):
             images, captions = self.imageLoader()
-            caption, out_word = self.model(inp_word, images, 35)        #max caption length                
+            caption, out_word = self.model(inp_word, images, len(captions[0])-1)        #max caption length                
             word_log = self.logsoftmax(out_word)
-            word_prob, indices = torch.max(word_log, dim = 2, keepdim = True)
-            self.perplexity =  - torch.sum(word_prob, dim = 0)
-            self.loss = self.perplexity / word_prob.shape[0]
-            self.loss = torch.sum(self.loss)
+            #for i in range(images.shape[0]):
+            word_seq = word_log[:,0,:]
+            target = torch.tensor(captions[0])
+            self.loss = self.criterion(word_seq, target)
+            self.loss = torch.sum(self.loss, dim = 0)
+            print('loss for {0}th iteration: {1:2.5f}'.format(epoch,self.loss.item()))
+            self.optimiser.zero_grad()
             self.loss.backward()
             self.optimiser.step()
-            print(self.loss.item())
-            
+
+            #word_prob, indices = torch.max(word_log, dim = 2, keepdim = True)
+            #print(word_prob.shape)
+            '''
+            self.perplexity =  - torch.sum(word_prob, dim = 0)
+            self.l = self.perplexity / word_prob.shape[0]
+            self.l = torch.sum(self.l)
+            self.l.backward()
+            self.optimiser.step()
+            print(self.l.item())
+            '''
+
 
 
