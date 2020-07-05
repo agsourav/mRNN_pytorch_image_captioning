@@ -23,9 +23,10 @@ class Vocabulary(object):
 
 
 class PreprocessCaptions(object):
-    def __init__(self):
+    def __init__(self, vocab):
         super(PreprocessCaptions, self).__init__()
         self.punc = '.!?-_@#*'
+        self.vocab = vocab
 
     def load_init(self, file_path, captionSeries_file):
         start = time.time()
@@ -67,20 +68,20 @@ class PreprocessCaptions(object):
     def pad_caption(self, caption, len_caption, pad_id):    #caption_int
         if len(caption) < len_caption:
             pad_seq = [pad_id]* (len_caption - len(caption))
-        elif len(caption) > len_caption:
-            caption = caption[:len_caption]
-        caption.extend(pad_seq)
-
+            caption.extend(pad_seq)
+        
         return caption
 
-    def pad_captions(self,vocab, captions):
+    def prepare_captions(self, captions):
+        captions = ['<start> ' + caption + ' <stop>' for caption in captions]
         caption_words = list(map(lambda x: x.split(' '), captions))
-        func = lambda x: vocab.word2idx(x.lower())
+        func = lambda x: self.vocab.word2idx(x.lower())
         caption_int = [list(map(func, caption)) for caption in caption_words]
-        pad_id = vocab.word2idx('<pad>')
-        max_len = 35
-        padded_caption = [self.pad_caption(caption, max_len, pad_id) for caption in caption_int]
-        #caption_len = list(map(lambda x: len(x), caption_int))
+        pad_id = self.vocab.word2idx('<pad>')
+
+        max_len_batch = np.max([len(caption) for caption in caption_int])
+        padded_caption = [self.pad_caption(caption, max_len_batch, pad_id) for caption in caption_int]
+
         return padded_caption
 
 

@@ -1,6 +1,5 @@
 import torch
 import torch.nn as nn
-
 class mRNN(nn.Module):
     def __init__(self, inp_dim, hidden_dim):
         super(mRNN, self).__init__()
@@ -103,6 +102,7 @@ class Model(nn.Module):
         rt_1 = h0
         feature_vector_img = self.imagefeatures.feature_vector(img)
         Vit = self.Vi(feature_vector_img)
+        wt = wt + Vit
         for i in range(max_caption_length):
             wt = wt.unsqueeze(0)
             rt = self.rnn(wt, rt_1)  
@@ -134,22 +134,18 @@ class Evaluate(nn.Module):
         self.iters = 50
 
     def forward(self, inp_word):
-        
+
         for epoch in range(self.epochs):
-            self.loss_total = 0.0
-            for it in range(self.iters):
-                images, captions = self.imageLoader()
-                caption, out_word = self.model(inp_word, images, 35)        #max caption length                
-                word_log = self.logsoftmax(out_word)
-                word_prob, indices = torch.max(word_log, dim = 2, keepdim = True)
-                self.perplexity =  - torch.sum(word_prob, dim = 0)
-                self.loss = self.perplexity / word_prob.shape[0]
-                self.loss = torch.sum(self.loss)
-                self.loss.backward()
-                self.optimiser.step()
-                print(self.loss.item())
-                self.loss_total = self.loss_total + self.loss
-            self.loss_total = self.loss_total /self.iters
-            print(self.loss_total)
+            images, captions = self.imageLoader()
+            caption, out_word = self.model(inp_word, images, 35)        #max caption length                
+            word_log = self.logsoftmax(out_word)
+            word_prob, indices = torch.max(word_log, dim = 2, keepdim = True)
+            self.perplexity =  - torch.sum(word_prob, dim = 0)
+            self.loss = self.perplexity / word_prob.shape[0]
+            self.loss = torch.sum(self.loss)
+            self.loss.backward()
+            self.optimiser.step()
+            print(self.loss.item())
+            
 
 
